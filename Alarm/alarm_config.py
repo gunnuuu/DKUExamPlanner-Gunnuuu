@@ -1,0 +1,273 @@
+"""
+    This module is responsible for the configuration of alarms.
+"""
+
+import time as t
+import tkinter as tki
+from tkinter import filedialog
+from tkinter import messagebox
+from datetime import datetime as dt
+from calendar_picker.CalendarDialog import CalendarFrame
+
+
+
+class Config():
+    """
+        This class creates new alarms or edits them
+    """
+
+    def __init__(self, master, storage, alarm_box, ringer, pretime=None,\
+     pretone=None, predate=None, pretime_index=None):
+        self.master = master
+        self.storage = storage
+        self.alarm_box = alarm_box
+        self.ringer = ringer
+
+        self.time = None
+        self.date = predate
+        self.tone = pretone
+
+        self.time_index = pretime_index
+
+        if pretime is None:
+            pretime = ["00", "00"]
+
+        self.indicator_labels = [int(pretime[0][0]), int(pretime[0][1]),\
+         ":", int(pretime[1][0]), int(pretime[1][1])]
+
+        self.indicators = []
+
+        column = 0
+        for label in self.indicator_labels:
+            if column == 0:
+                padx = [2, 10]
+            elif column == 2:
+                padx = 5
+            else:
+                padx = 10
+            temp_indicator = tki.Label(self.master, height=2,\
+             width=6, text=label, font=("Helvetica", 16, "bold"))
+            temp_indicator.grid(row=0, column=column, padx=padx, pady=[20, 0])
+            self.indicators.append(temp_indicator)
+            column += 1
+
+        up_arrow = tki.PhotoImage(file="C:\\Users\\pkunw\\OneDrive\\바탕 화면\\Alarm\\icons\\arrow-141-16.gif")
+        down_arrow = tki.PhotoImage(file="C:\\Users\\pkunw\\OneDrive\\바탕 화면\\Alarm\\icons\\arrow-204-16.gif")
+        self.navigate_buttons = []
+
+        for column in range(5):
+            if column == 2:
+                continue
+            temp_increase = tki.Button(self.master, image=up_arrow)
+            temp_increase.image = up_arrow
+            temp_increase.grid(row=1, column=column, pady=[20, 0])
+            self.navigate_buttons.append(temp_increase)
+
+            temp_decrease = tki.Button(self.master, image=down_arrow)
+            temp_decrease.image = down_arrow
+            temp_decrease.grid(row=2, column=column)
+            self.navigate_buttons.append(temp_decrease)
+
+        if self.time_index is None:
+            self.add_button = tki.Button(self.master, text="알람 설정",\
+             padx=35, command=self.add_alarm)
+            self.add_button.grid(row=3, column=2, columnspan=3, pady=[120, 0])
+
+        else:
+            self.update_button = tki.Button(self.master, text="알람 추가",\
+             padx=35, command=self.update_alarm)
+            self.update_button.grid(row=3, column=2, columnspan=3, pady=[120, 0])
+
+        self.calendar_frame = CalendarFrame(master, self.date)
+        self.calendar_frame.grid(row=3, column=0, columnspan=2, pady=[50, 10])
+
+        self.tone_box = tki.LabelFrame(self.master)
+        self.tone_box.grid(row=4, column=0, columnspan=2)
+        self.tone_name = tki.Entry(self.tone_box, state=tki.DISABLED)
+        self.tone_name.grid(row=0, column=0)
+
+        self.tone_click = tki.Button(self.tone_box, text="노래를 골라주세요", command=self.get_tone)
+        self.tone_click.grid(row=1, column=0)
+
+        self.bind_widgets()
+
+        if self.tone != None:
+            self.display_tone_name()
+
+    def bind_widgets(self):
+        """
+            This method binds created widgets to user actions.
+        """
+        self.navigate_buttons[0].bind("<ButtonRelease-1>", self.increase)
+        self.navigate_buttons[2].bind("<ButtonRelease-1>", self.increase)
+        self.navigate_buttons[4].bind("<ButtonRelease-1>", self.increase)
+        self.navigate_buttons[6].bind("<ButtonRelease-1>", self.increase)
+
+        self.navigate_buttons[1].bind("<ButtonRelease-1>", self.decrease)
+        self.navigate_buttons[3].bind("<ButtonRelease-1>", self.decrease)
+        self.navigate_buttons[5].bind("<ButtonRelease-1>", self.decrease)
+        self.navigate_buttons[7].bind("<ButtonRelease-1>", self.decrease)
+
+
+    def increase(self, event):
+        """
+            This method increases the time indicators.
+        """
+        if self.navigate_buttons[0].winfo_id == event.widget.winfo_id\
+         and self.indicators[0]["text"] <= 1:
+            if self.indicators[0]["text"] == 1 and self.indicators[1]["text"] > 3:
+                pass
+            else:
+                self.indicators[0]["text"] += 1
+
+        elif self.navigate_buttons[2].winfo_id == event.widget.winfo_id\
+         and self.indicators[1]["text"] <= 8:
+            if self.indicators[0]["text"] == 2 and self.indicators[1]["text"] == 3:
+                pass
+            else:
+                self.indicators[1]["text"] += 1
+
+        elif self.navigate_buttons[4].winfo_id == event.widget.winfo_id\
+         and self.indicators[3]["text"] <= 4:
+            self.indicators[3]["text"] += 1
+
+        elif self.navigate_buttons[6].winfo_id == event.widget.winfo_id\
+         and self.indicators[4]["text"] <= 8:
+            self.indicators[4]["text"] += 1
+
+    def decrease(self, event):
+        """
+            This method decreases the time indicators.
+        """
+        if self.navigate_buttons[1].winfo_id == event.widget.winfo_id\
+         and self.indicators[0]["text"] >= 1:
+            self.indicators[0]["text"] -= 1
+
+        elif self.navigate_buttons[3].winfo_id == event.widget.winfo_id\
+         and self.indicators[1]["text"] >= 1:
+            self.indicators[1]["text"] -= 1
+
+        elif self.navigate_buttons[5].winfo_id == event.widget.winfo_id\
+         and self.indicators[3]["text"] >= 1:
+            self.indicators[3]["text"] -= 1
+
+        elif self.navigate_buttons[7].winfo_id == event.widget.winfo_id\
+         and self.indicators[4]["text"] >= 1:
+            self.indicators[4]["text"] -= 1
+
+
+    def get_tone(self):
+        """
+            This method lets user pick alarm tone when creating alarms.
+            It also extracts the alarm tone from database while editing alarms.
+        """
+        self.display_tone_name()
+        try:
+            self.tone = filedialog.askopenfilename(initialdir="/", initialfile="",\
+             title="노래 소리", filetypes=(("mp3 files", "*.mp3"),), parent=self.master)
+        except tki._tkinter.TclError:
+            pass
+        self.display_tone_name()
+
+
+    def display_tone_name(self):
+        """
+            This method displays the selected tone in the self.tone_name entry box
+        """
+        try:
+            self.stripped_tone = self.tone.split("/")[-1]
+            self.tone_name["state"] = tki.NORMAL
+            self.tone_name.insert(tki.END, self.stripped_tone)
+            self.tone_name["state"] = tki.DISABLED
+        except AttributeError:
+            self.tone = None
+
+    def get_time(self):
+        """
+            This method gets the set time from current states of the time indicators
+        """
+        unparsed_time = [str(self.indicators[0]["text"]) + str(self.indicators[1]["text"]),\
+         str(self.indicators[3]["text"]) + str(self.indicators[4]["text"])]
+        self.time = {"hour": unparsed_time[0], "minute": unparsed_time[1]}
+        return self.time
+    def get_date(self):
+        """
+            This method lets user pick alarm date when creating alarms.
+            It also extracts the alarm date from database while editing alarms.
+        """
+        try:
+            self.date = self.calendar_frame.date_box.get().split("/")
+            self.date = {"year":self.date[2], "month":self.date[1], "day":self.date[0]}
+            return self.date
+        except IndexError:
+            self.date = None
+
+    def to_db(self):
+        """
+            This method sends the current alarm configurations to the database.
+        """
+        if self.time_index is None:
+            self.time_index = t.time()
+            self.storage.connect()
+            self.storage.add(self.time_index, self.date["year"], self.date["month"],\
+             self.date["day"], self.time["hour"], self.time["minute"], self.tone)
+            self.storage.commit()
+            self.storage.close()
+        else:
+            self.storage.connect()
+            self.storage.update(self.time_index, self.date["year"], self.date["month"],\
+             self.date["day"], self.time["hour"], self.time["minute"], self.tone)
+            self.storage.commit()
+            self.storage.close()
+
+    def add_alarm(self):
+        """
+            This method sets the alarm, and adds alarm widget to the alarm_box
+        """
+        date = self.get_date()
+        time = self.get_time()
+
+        if self.date is None:
+            messagebox.showerror(title="에러!", message="날짜를 골라주세요!")
+
+        elif self.tone is None:
+            messagebox.showerror(title="에러!", message="노래를 골라주세요!")
+
+        else:
+            time_difference = dt.now().replace(year=int(date["year"]), month=int(date["month"]),\
+            day=int(date["day"]), hour=int(time["hour"]),\
+            minute=int(time["minute"]), second=0) - dt.now()
+            seconds_difference = time_difference.total_seconds()
+            if seconds_difference <= 0:
+                messagebox.showerror(title="에러!", message="이미 설정된 시간입니다!")
+            else:
+                self.to_db()
+                self.ringer.get_ringtime()
+                self.ringer.call_popup()
+                self.alarm_box.get_alarm()
+                self.close()
+
+    def update_alarm(self):
+        """
+            This method updates the alarm, and updates alarm widget details in the alarm_box
+        """
+        self.get_date()
+        self.get_time()
+        if self.date is None:
+            messagebox.showerror(title="에러!", message="날짜를 골라주세요!")
+
+        elif self.tone is None:
+            messagebox.showerror(title="에러!", message="노래를 골라주세요!")
+
+        else:
+            self.to_db()
+            self.ringer.get_ringtime()
+            self.ringer.call_popup()
+            self.alarm_box.get_alarm()
+            self.close()
+
+    def close(self):
+        """
+            This method closes the alarm configuration widget
+        """
+        self.master.destroy()
