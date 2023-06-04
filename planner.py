@@ -1,6 +1,10 @@
 import sys
 from datetime import datetime
+import os
 import json
+import sys
+sys.path.append('C:\\Users\\pkunw\\OneDrive\\바탕 화면\\Alarm') 
+import alarm
 from PyQt5.QtWidgets import (QApplication, QWidget, QCalendarWidget, QLabel,
                              QHBoxLayout, QPushButton, QVBoxLayout, QLineEdit,
                              QListWidget, QMessageBox, QInputDialog, QLCDNumber)
@@ -9,20 +13,27 @@ from PyQt5 import QtGui
 from PyQt5.QtGui import QTextCharFormat, QColor, QPixmap
 from style import *
 from os import path
+import webbrowser
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
+import time
 
 class Calendar(QWidget):
     # keep the current time as class variable for reference
     currentDay = str(datetime.now().day).rjust(2, '0')
     currentMonth = str(datetime.now().month).rjust(2, '0')
     currentYear = str(datetime.now().year).rjust(2, '0')
-
+    
     def __init__(self, width, height):
         super().__init__()
         folder = path.dirname(__file__)
-        self.icon_folder = path.join(folder, "icons")
+        self.icon_folder = path.join(folder, "icon")
 
-        self.setWindowTitle("Planner")
+        self.setWindowTitle("DKU ExamPlanner")
         self.setWindowIcon(QtGui.QIcon(path.join(self.icon_folder, 'window.png')))
 
         self.setGeometry(width // 4, height // 4, width // 2, height // 2)
@@ -69,12 +80,20 @@ class Calendar(QWidget):
         self.calendar.setDateTextFormat(QDate.fromString(current, "ddMMyyyy"), cur_fmt)
 
         # organize buttons and layouts for display
-        addButton = QPushButton("Add Event")
+        addButton = QPushButton("시험일정 추가")
         addButton.clicked.connect(self.addNote)
-        editButton = QPushButton("Edit")
+        fileButton = QPushButton("공부파일 추가")
+        fileButton.clicked.connect(self.addFile)
+        openButton = QPushButton("파일 열기")
+        openButton.clicked.connect(self.openFile)
+        editButton = QPushButton("정보 수정")
         editButton.clicked.connect(self.editNote)
-        delButton = QPushButton("Delete")
+        delButton = QPushButton("정보 삭제")
         delButton.clicked.connect(self.delNote)
+        askButton = QPushButton("검색 하기")
+        askButton.clicked.connect(self.ask)
+        arlButton = QPushButton("알람 설정")
+        arlButton.clicked.connect(self.arl)
 
         self.calendar.selectionChanged.connect(self.showDateInfo)
         self.calendar.selectionChanged.connect(self.labelDate)
@@ -91,7 +110,7 @@ class Calendar(QWidget):
         self.showDateInfo()
 
         labelp = QLabel()
-        pixmap = QPixmap(path.join(self.icon_folder, 'calendar.png'))
+        pixmap = QPixmap(path.join(self.icon_folder, 'DKU.png'))
         labelp.setPixmap(pixmap)
 
         # set up a timer that automatically updates every second
@@ -110,8 +129,12 @@ class Calendar(QWidget):
 
         hbox2 = QHBoxLayout()
         hbox2.addWidget(addButton)
+        hbox2.addWidget(fileButton)
+        hbox2.addWidget(openButton)
         hbox2.addWidget(editButton)
         hbox2.addWidget(delButton)
+        hbox2.addWidget(askButton)
+        hbox2.addWidget(arlButton)
 
         hbox3 = QHBoxLayout()
         hbox3.addStretch(1)
@@ -144,7 +167,23 @@ class Calendar(QWidget):
         # by start time
         date = self.getDate()
         row = self.note_group.currentRow()
-        title = "Add event"
+        title = "시험일정"
+        string, ok = QInputDialog.getText(self, " ", title)
+
+        if ok and string:
+            if string[0].isdigit() and string[0] not in ["0", "1", "2"]:
+                string = string.replace(string[0], "0" + string[0])
+            self.note_group.insertItem(row, string)
+            self.calendar.setDateTextFormat(QDate.fromString(date, "ddMMyyyy"), self.fmt)
+            if date in self.data:
+                self.data[date].append(string)
+            else:
+                self.data[date] = [string]
+
+    def addFile(self):
+        date = self.getDate()
+        row = self.note_group.currentRow()
+        title = "공부파일"
         string, ok = QInputDialog.getText(self, " ", title)
 
         if ok and string:
@@ -165,7 +204,7 @@ class Calendar(QWidget):
 
         if not item:
             return
-        reply = QMessageBox.question(self, " ", "Remove",
+        reply = QMessageBox.question(self, " ", "삭제",
                                      QMessageBox.Yes | QMessageBox.No)
 
         if reply == QMessageBox.Yes:
@@ -176,6 +215,21 @@ class Calendar(QWidget):
                 self.calendar.setDateTextFormat(QDate.fromString(date, "ddMMyyyy"), self.delfmt)
             del(item)
 
+    def openFile(self):
+        row = self.note_group.currentRow()
+        item = self.note_group.item(row)
+
+        if not item:
+            return
+        reply = QMessageBox.question(self, " ", "파일을 열까요?",
+                                     QMessageBox.Yes | QMessageBox.No)
+
+        if reply == QMessageBox.Yes:
+            item = self.note_group.takeItem(row)
+            link = item.text()
+            webbrowser.open(link)
+           
+
     def editNote(self):
         # edit the currently selected item
         date = self.getDate()
@@ -184,7 +238,7 @@ class Calendar(QWidget):
 
         if item:
             copy = item.text()
-            title = "Edit event"
+            title = "수정"
             string, ok = QInputDialog.getText(self, " ", title,
                                               QLineEdit.Normal, item.text())
 
@@ -195,6 +249,31 @@ class Calendar(QWidget):
                     string = string.replace(string[0], "0" + string[0])
                 item.setText(string)
 
+    def ask(self):
+        title = "질문이 무었인가요?"
+        string, ok = QInputDialog.getText(self, " ", title)
+
+        if ok and string:
+            search = string
+
+        webdriver_path = "C:\\Users\\pkunw\\OneDrive\\바탕 화면\\chromedriver.exe"
+        service = Service(webdriver_path)
+        # WebDriver를 통해 Chrome 브라우저 실행
+        driver = webdriver.Chrome(service=service)
+        driver.get('https://www.google.com')
+
+        wait = WebDriverWait(driver, 10)
+        search_box = wait.until(EC.presence_of_element_located((By.NAME, 'q')))
+
+        search_box.send_keys(string)
+        search_box.submit()
+
+        wait.until(EC.title_contains(string))
+        sys.exit(app.exec_())
+       
+    def arl(self):
+        alarm.alarm()
+       
     def getDate(self):
         # parse the selected date into usable string form
         select = self.calendar.selectedDate()
